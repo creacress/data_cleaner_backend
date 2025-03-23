@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload CSV</title>
+</head>
+<body>
+  <h1>🧼 Data Cleaner – Test Upload</h1>
+  <form id="form" enctype="multipart/form-data">
+    <label for="fileInput">Upload your CSV file:</label>
+    <input id="fileInput" type="file" name="file" accept=".csv" required title="Choose a CSV file to upload" />
+    <button type="submit">Envoyer</button>
+  </form>
+  <pre id="output"></pre>
+
+  <script>
+    const form = document.getElementById('form');
+    const output = document.getElementById('output');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const res = await fetch('http://localhost:8080/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const text = await res.text();
+      output.textContent = text;
+    });
+  </script>
+</body>
+</html>
