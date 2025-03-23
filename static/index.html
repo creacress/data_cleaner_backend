@@ -1,33 +1,122 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upload CSV</title>
+  <title>Data Cleaner – Upload & Preview</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; font-size: 0.9rem; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+    th { background: #f1f1f1; }
+    pre { background: #eee; padding: 10px; white-space: pre-wrap; }
+    #previewBtn, #previewBtnSecondary, #cleanBtn { margin-top: 1rem; }
+  </style>
 </head>
 <body>
-  <h1>🧼 Data Cleaner – Test Upload</h1>
+  <h1>🧼 Data Cleaner – Upload & Aperçu</h1>
+
   <form id="form" enctype="multipart/form-data">
     <label for="fileInput">Upload your CSV file:</label>
-    <input id="fileInput" type="file" name="file" accept=".csv" required title="Choose a CSV file to upload" />
+    <input id="fileInput" type="file" name="file" accept=".csv" required />
     <button type="submit">Envoyer</button>
   </form>
-  <pre id="output"></pre>
+
+  <button id="previewBtn" type="button">Voir l'aperçu des données</button>
+  <button id="previewBtnSecondary" type="button">Statistiques des colonnes</button>
+  <button id="cleanBtn" type="button">🧹 Nettoyer les données</button>
+
+  <pre id="uploadStatus"></pre>
+
+  <div id="previewSection"></div>
+  <pre id="cleanSummary"></pre>
 
   <script>
     const form = document.getElementById('form');
-    const output = document.getElementById('output');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const previewBtn = document.getElementById('previewBtn');
+    const previewBtnSecondary = document.getElementById('previewBtnSecondary');
+    const cleanBtn = document.getElementById('cleanBtn');
+    const previewSection = document.getElementById('previewSection');
+    const cleanSummary = document.getElementById('cleanSummary');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(form);
-      const res = await fetch('http://localhost:8080/upload', {
-        method: 'POST',
-        body: formData
-      });
-      const text = await res.text();
-      output.textContent = text;
+      try {
+        const res = await fetch('http://localhost:8080/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const text = await res.text();
+        uploadStatus.textContent = text;
+      } catch (err) {
+        uploadStatus.textContent = '❌ Erreur lors de l\'upload';
+      }
     });
+
+    previewBtn.addEventListener('click', handlePreview);
+    previewBtnSecondary.addEventListener('click', handlePreview);
+    cleanBtn.addEventListener('click', handleClean);
+
+    async function handlePreview() {
+      try {
+        const res = await fetch('http://localhost:8080/preview');
+        const data = await res.json();
+
+        const previewTable = `
+          <h2>🔎 Aperçu des 100 premières lignes</h2>
+          <table>
+            <thead>
+              <tr>${data.columns.map(col => `<th>${col.name}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+              ${data.preview.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        `;
+
+        const statsTable = `
+          <h2>📊 Statistiques des colonnes</h2>
+          <table>
+            <thead>
+              <tr><th>Nom</th><th>Type</th><th>% Nulls</th><th>Exemples</th></tr>
+            </thead>
+            <tbody>
+              ${data.columns.map(col => `
+                <tr>
+                  <td>${col.name}</td>
+                  <td>${col.dtype}</td>
+                  <td>${col.null_percentage}%</td>
+                  <td>${col.examples.join(', ')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        `;
+
+        previewSection.innerHTML = previewTable + statsTable;
+      } catch (err) {
+        previewSection.innerHTML = '❌ Erreur lors du chargement de l\'aperçu';
+      }
+    }
+
+    async function handleClean() {
+      try {
+        const res = await fetch('http://localhost:8080/clean');
+        const summary = await res.json();
+        cleanSummary.textContent = `
+✅ Nettoyage terminé !
+
+• Forme initiale : ${summary.original_shape[0]} lignes × ${summary.original_shape[1]} colonnes
+• Forme finale : ${summary.final_shape[0]} lignes × ${summary.final_shape[1]} colonnes
+• Colonnes supprimées (constantes) : ${summary.removed_constant_columns.join(', ') || 'Aucune'}
+• Colonnes avec valeurs nulles remplies : ${summary.filled_nulls}
+• Colonnes normalisées : ${summary.normalized_columns.join(', ') || 'Aucune'}
+        `;
+      } catch (err) {
+        cleanSummary.textContent = '❌ Erreur lors du nettoyage des données';
+      }
+    }
   </script>
 </body>
 </html>

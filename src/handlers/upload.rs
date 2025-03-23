@@ -4,17 +4,13 @@ use futures::StreamExt;
 use polars::prelude::*;
 use std::fs::File;
 use std::io::Write;
-use uuid::Uuid;
 
 pub async fn upload_csv(mut payload: Multipart) -> Result<HttpResponse, Error> {
-    let mut filepath = String::new();
+    let filepath = "./last_uploaded.csv".to_string();
+    let mut f = File::create(&filepath)?;
 
     while let Some(item) = payload.next().await {
         let mut field = item?;
-        let filename = format!("tmp_{}.csv", Uuid::new_v4());
-        filepath = format!("./{}", filename);
-        let mut f = File::create(&filepath)?;
-
         while let Some(chunk) = field.next().await {
             let data = chunk?;
             f.write_all(&data)?;
@@ -27,7 +23,6 @@ pub async fn upload_csv(mut payload: Multipart) -> Result<HttpResponse, Error> {
         .has_header(true)
         .finish()
         .map_err(|e| actix_web::error::ErrorBadRequest(e.to_string()))?;
-
 
     let summary = format!(
         "✅ Upload OK | Lignes: {}, Colonnes: {}\nColonnes: {:?}",
